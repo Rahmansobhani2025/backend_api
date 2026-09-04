@@ -66,14 +66,16 @@ const getGenAI = () => {
 const SIGNAL_SYSTEM_INSTRUCTION = `
 You are Signal (سيجنال), an expert, warm, and professional assistant embedded inside the BookingsPlace platform (bookingsplace.com).
 
-### Core Responsibilities
-1. **Dynamic Understanding:** Read the user's latest query or listen closely to their audio input (handling accents and regional Arabic dialects naturally) and address it directly and contextually. Never repeat a hardcoded static answer if the user changes topics.
-2. **Knowledge Base Mapping:** 
+### Core Responsibilities & Strict Rules
+1. **Dynamic Language Matching (CRITICAL):** You must always reply in the exact same language and script that the user uses. 
+   - If the user writes or speaks in English, reply entirely in English.
+   - If the user writes or speaks in Arabic (or any Arabic dialect), reply entirely in Arabic.
+   - Never switch languages unless the user switches first.
+2. **Dynamic Understanding:** Read the user's latest query or listen closely to their audio input (handling accents and regional dialects naturally) and address it directly and contextually. Never repeat a hardcoded static answer if the user changes topics.
+3. **Knowledge Base Mapping:** 
    - Match user search requests against the provided SUPABASE KNOWLEDGE BASE CATALOG.
    - If they are looking for specific services (like tents, banquets, henna, or decoration) in cities (like Riyadh or Jeddah), check the catalog or guide them on how to filter services directly on https://bookingsplace.com.
-3. **Response Style:**
-   - Keep responses helpful, warm, dynamic, and tailored strictly to what the user just asked.
-   - Match the user's language (Arabic or English).
+4. **Response Style:** Keep responses helpful, warm, dynamic, and tailored strictly to what the user just asked.
 `;
 
 // Helper function to call Gemini model with fallback support
@@ -111,7 +113,7 @@ async function generateGeminiReply(
 // Protected API Route: Chat with Signal (Supports Text & Audio Multimodal Input)
 app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
   try {
-    const { messages, audio, mimeType, userLanguage = "ar" } = req.body;
+    const { messages, audio, mimeType } = req.body;
 
     const supabase = getSupabase();
     let knowledgeBaseContext = "";
@@ -142,7 +144,7 @@ app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
     let contents: Array<any> = [];
 
     if (audio) {
-      // Multimodal audio payload from frontend/mobile client
+      // Multimodal audio payload: Instruct Gemini to auto-detect language from audio
       contents = [
         {
           inlineData: {
@@ -151,7 +153,7 @@ app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
           },
         },
         {
-          text: `Listen carefully to this audio message. Understand the user's intent and regional dialect, and reply back naturally in ${userLanguage === "ar" ? "Arabic" : "English"}.`,
+          text: `Listen carefully to this audio recording. Detect the exact language and dialect spoken by the user, and reply back naturally and entirely in that same language (Arabic if they spoke Arabic, English if they spoke English).`,
         },
       ];
     } else {
@@ -170,19 +172,13 @@ app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
     if (replyText) {
       return res.json({ reply: replyText });
     } else {
+      // Fallback check based on last user text/context language
       const lastUserMsg = messages?.[messages.length - 1]?.content || "";
-      let fallbackReply =
-        userLanguage === "ar"
-          ? "أهلاً بك! يمكنك تصفح منصة BookingsPlace (https://bookingsplace.com/ar) لاستعراض الخدمات والعقارات بكل سهولة."
-          : "Welcome! You can browse the BookingsPlace platform (https://bookingsplace.com/en) to explore services and venues easily.";
+      const isEnglishQuery = /[a-zA-Z]/.test(lastUserMsg);
 
-      if (lastUserMsg.includes("خيام")) {
-        fallbackReply =
-          "للبحث عن خيام في الرياض، يمكنك زيارة منصة BookingsPlace (https://bookingsplace.com/ar) واستخدام فلتر البحث لتحديد المدينة (الرياض) ونوع الخدمة (خيام).";
-      } else if (lastUserMsg.includes("ولائم")) {
-        fallbackReply =
-          "للبحث عن خدمات الولائم، يرجى زيارة قسم الخدمات في منصة BookingsPlace (https://bookingsplace.com/ar) لاختيار أفضل مقدمي خدمات الطعام والولائم.";
-      }
+      let fallbackReply = isEnglishQuery
+        ? "Welcome! You can browse the BookingsPlace platform (https://bookingsplace.com/en) to explore services and venues easily."
+        : "أهلاً بك! يمكنك تصفح منصة BookingsPlace (https://bookingsplace.com/ar) لاستعراض الخدمات والعقارات بكل سهولة.";
 
       return res.json({ reply: fallbackReply });
     }
