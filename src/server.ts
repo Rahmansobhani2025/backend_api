@@ -17,6 +17,9 @@ app.use(
   })
 );
 
+// Add this line to handle browser preflight checks on Vercel:
+app.options("*", cors());
+
 app.use(express.json({ limit: '10mb' })); // Increased limit to handle base64 audio payloads
 
 // Middleware to validate customer_chat_api_key from frontend headers
