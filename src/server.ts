@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from "express";
-import cors from "cors";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
@@ -9,16 +8,27 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS configuration allowing your frontend client origin
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
-    credentials: true,
-  })
-);
+// Custom robust CORS middleware built specifically for Vercel serverless environment
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const allowedOrigins = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"];
+  const origin = req.headers.origin;
 
-// Add this line to handle browser preflight checks on Vercel:
-app.options("*", cors());
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-customer-chat-api-key, customer_chat_api_key, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  next();
+});
 
 app.use(express.json({ limit: '10mb' })); // Increased limit to handle base64 audio payloads
 
