@@ -10,7 +10,11 @@ const PORT = process.env.PORT || 3001;
 
 // Custom robust CORS middleware built specifically for Vercel serverless environment
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const allowedOrigins = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"];
+  const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+  ];
   const origin = req.headers.origin;
 
   if (origin && allowedOrigins.includes(origin)) {
@@ -19,8 +23,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
 
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-customer-chat-api-key, customer_chat_api_key, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, x-customer-chat-api-key, customer_chat_api_key, Authorization"
+  );
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
   if (req.method === "OPTIONS") {
@@ -30,16 +40,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use(express.json({ limit: '10mb' })); // Increased limit to handle base64 audio payloads
+app.use(express.json({ limit: "10mb" })); // Increased limit to handle base64 audio payloads
 
 // Middleware to validate customer_chat_api_key from frontend headers
 const verifyChatApiKey = (req: Request, res: Response, next: NextFunction) => {
   const clientApiKey =
-    req.headers["x-customer-chat-api-key"] || req.headers["customer_chat_api_key"];
+    req.headers["x-customer-chat-api-key"] ||
+    req.headers["customer_chat_api_key"];
   const expectedApiKey = process.env.CUSTOMER_CHAT_API_KEY;
 
   if (!clientApiKey || clientApiKey !== expectedApiKey) {
-    return res.status(401).json({ error: "Unauthorized: Invalid or missing customer_chat_api_key" });
+    return res
+      .status(401)
+      .json({ error: "Unauthorized: Invalid or missing customer_chat_api_key" });
   }
 
   next();
@@ -97,7 +110,12 @@ async function generateGeminiReply(
   contents: Array<any>,
   systemInstruction: string
 ): Promise<string | null> {
-  const supportedModels = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-pro"];
+  // Corrected valid production model identifiers
+  const supportedModels = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+  ];
 
   for (const model of supportedModels) {
     try {
@@ -171,7 +189,9 @@ app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
       ];
     } else {
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: "Messages array or audio payload is required." });
+        return res
+          .status(400)
+          .json({ error: "Messages array or audio payload is required." });
       }
 
       contents = messages.map((m: { role: string; content: string }) => ({
@@ -180,7 +200,11 @@ app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
       }));
     }
 
-    const replyText = await generateGeminiReply(ai, contents, fullSystemInstruction);
+    const replyText = await generateGeminiReply(
+      ai,
+      contents,
+      fullSystemInstruction
+    );
 
     if (replyText) {
       return res.json({ reply: replyText });
@@ -201,6 +225,12 @@ app.post("/api/chat", verifyChatApiKey, async (req: Request, res: Response) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Signal Backend API running on http://localhost:${PORT}`);
-});
+// Start local listener only outside production
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Signal Backend API running on http://localhost:${PORT}`);
+  });
+}
+
+// Export default app for Vercel Serverless Functions
+export default app;

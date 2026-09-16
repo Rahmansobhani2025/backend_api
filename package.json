@@ -2,10 +2,11 @@
   "name": "signal-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/server.js",
+  "main": "src/server.ts",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "vercel-build": "echo 'Building for Vercel'",
     "start": "node dist/server.js"
   },
   "dependencies": {
