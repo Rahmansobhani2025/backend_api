@@ -16,25 +16,48 @@ app.use(cors({
 app.options('*', cors());
 
 // 2. Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 3. Health check route
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// 4. Sample API route
+// 4. Sample API routes
+app.get('/', (req: Request, res: Response) => {
+  res.json({ message: 'BookingsPlace API is running successfully.' });
+});
+
 app.get('/api', (req: Request, res: Response) => {
   res.json({ message: 'BookingsPlace API is running successfully.' });
 });
 
-// 5. 404 Catch-all handler
+// 5. Chat API routes (Handles POST requests from frontend)
+const handleChatRequest = async (req: Request, res: Response) => {
+  try {
+    const { messages, audio, userLanguage, sessionId } = req.body;
+
+    // TODO: Add your AI provider call (e.g. Gemini / OpenAI) here
+    // Example placeholder response:
+    return res.status(200).json({
+      reply: "Backend connected successfully! Add your AI model processing logic here.",
+    });
+  } catch (error: any) {
+    console.error('Chat processing error:', error);
+    return res.status(500).json({ error: 'Failed to process chat request' });
+  }
+};
+
+app.post('/chat', handleChatRequest);
+app.post('/api/chat', handleChatRequest);
+
+// 6. 404 Catch-all handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// 6. Global error handling middleware
+// 7. Global error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled Error:', err.stack);
   res.status(500).json({
@@ -43,9 +66,11 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// 7. Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// 8. Start server (for local development)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
